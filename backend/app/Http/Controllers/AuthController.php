@@ -6,10 +6,29 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Tymon\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class AuthController extends Controller
 {
+    public function showLogin()
+    {
+        if (Auth::check()) {
+            return redirect($this->redirectBasedOnRole(Auth::user()->role));
+        }
+
+        return Inertia::render('Login');
+    }
+
+    public function showRegister()
+    {
+        if (Auth::check()) {
+            return redirect($this->redirectBasedOnRole(Auth::user()->role));
+        }
+
+        return Inertia::render('Register');
+    }
+
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -25,15 +44,19 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            return back()->withErrors($validator);
         }
 
         // Validate department requirements for department-scoped roles
         $departmentScopedRoles = ['student', 'coordinator', 'examiner', 'advisor'];
         if (in_array($request->role, $departmentScopedRoles) && !$request->department_id) {
-            return response()->json([
-                'error' => 'Department ID is required for this role'
-            ], 422);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['error' => 'Department ID is required for this role'], 422);
+            }
+            return back()->withErrors(['department_id' => 'Department ID is required for this role']);
         }
 
         $user = User::create([
@@ -48,13 +71,17 @@ class AuthController extends Controller
             'company_id' => $request->company_id,
         ]);
 
-        $token = JWTAuth::fromUser($user);
+        Auth::login($user);
 
-        return response()->json([
-            'message' => 'User registered successfully',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+        if ($request->expectsJson() || $request->is('api/*')) {
+            $token = auth('api')->login($user);
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+            ], 201);
+        }
+
+        return redirect($this->redirectBasedOnRole($user->role));
     }
 
     public function login(Request $request)
@@ -70,44 +97,76 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['error' => 'Invalid login data'], 422);
+            }
+            return back()->withErrors($validator);
         }
 
-        if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json(['error' => 'Invalid credentials'], 401);
+        if ($request->expectsJson() || $request->is('api/*')) {
+            if (!$token = auth('api')->attempt($credentials)) {
+                return response()->json(['error' => 'Invalid credentials'], 401);
+            }
+
+            $user = auth('api')->user();
+
+            if ($user && !$user->is_active) {
+                auth('api')->logout();
+                return response()->json(['error' => 'Account is deactivated'], 403);
+            }
+
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+            ]);
+        }
+
+        if (!Auth::attempt($credentials)) {
+            return back()->withErrors(['email' => 'Invalid credentials']);
         }
 
         $user = auth()->user();
 
         if (!$user->is_active) {
-            return response()->json(['error' => 'Account is deactivated'], 401);
+            Auth::logout();
+            return back()->withErrors(['email' => 'Account is deactivated']);
         }
 
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-            'token' => $token,
-        ]);
+        return redirect($this->redirectBasedOnRole($user->role));
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        if ($request->expectsJson() || $request->is('api/*')) {
+            auth('api')->logout();
+            return response()->json(['message' => 'Logged out successfully']);
+        }
 
-        return response()->json(['message' => 'Successfully logged out']);
+        Auth::logout();
+        return redirect('/');
     }
 
-    public function refresh()
+    public function me(Request $request)
     {
-        $token = JWTAuth::refresh(JWTAuth::getToken());
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(auth('api')->user());
+        }
 
-        return response()->json([
-            'token' => $token,
-        ]);
+        return redirect('/');
     }
 
-    public function me()
+    public function refresh(Request $request)
     {
-        return response()->json(auth()->user());
+        if ($request->expectsJson() || $request->is('api/*')) {
+            $token = auth('api')->refresh();
+            return response()->json(['token' => $token]);
+        }
+
+        return redirect('/');
+    }
+
+    private function redirectBasedOnRole($role)
+    {
+        return '/dashboard';
     }
 }

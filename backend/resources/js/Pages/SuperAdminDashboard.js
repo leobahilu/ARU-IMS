@@ -269,43 +269,47 @@ const SuperAdminDashboard = () => {
         {error && <div className="sa-message error"><span>❌</span><span>{error}</span></div>}
         {success && <div className="sa-message success"><span>✅</span><span>{success}</span></div>}
 
-        <div className="sa-content-area">
-          {renderContent()}
-        </div>
+        <div className="sa-content-layout">
+          <div className="sa-content-area">
+            {renderContent()}
+          </div>
 
-        {generatedCredentials.length > 0 && ['student', 'company', 'examiner', 'advisor', 'pending-approvals'].includes(activeSection) && (
-          <div className="sa-credentials-panel">
-            <div className="credentials-header">
-              <h3>📋 Recently Generated Credentials</h3>
-              <button type="button" className="clear-credentials" onClick={() => setGeneratedCredentials([])}>Clear All</button>
-            </div>
-            <div className="credentials-list">
-              {generatedCredentials.slice(0, 3).map((cred, idx) => (
-                <div key={`${cred.email}-${idx}`} className="credential-item">
-                  <div className="cred-user">
-                    <strong>{cred.name || cred.email}</strong>
-                    <span className="cred-role">{activeSection}</span>
-                  </div>
-                  <div className="cred-details">
-                    <code>{cred.email}</code>
-                    <code className="password">{cred.password}</code>
-                  </div>
+          <div className="sa-sidepanels">
+            {generatedCredentials.length > 0 && ['student', 'company', 'examiner', 'advisor', 'pending-approvals'].includes(activeSection) && (
+              <div className="sa-credentials-panel">
+                <div className="credentials-header">
+                  <h3>📋 Recently Generated Credentials</h3>
+                  <button type="button" className="clear-credentials" onClick={() => setGeneratedCredentials([])}>Clear All</button>
+                </div>
+                <div className="credentials-list">
+                  {generatedCredentials.slice(0, 3).map((cred, idx) => (
+                    <div key={`${cred.email}-${idx}`} className="credential-item">
+                      <div className="cred-user">
+                        <strong>{cred.name || cred.email}</strong>
+                        <span className="cred-role">{activeSection}</span>
+                      </div>
+                      <div className="cred-details">
+                        <code>{cred.email}</code>
+                        <code className="password">{cred.password}</code>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <section className="activity-panel">
+              <h3>Recent Activities</h3>
+              {activity.map((item, idx) => (
+                <div key={`${item.message}-${idx}`} className="activity-item">
+                  <span>{item.icon}</span>
+                  <p>{item.message}</p>
+                  <small>{item.time}</small>
                 </div>
               ))}
-            </div>
+            </section>
           </div>
-        )}
-
-        <section className="activity-panel">
-          <h3>Recent Activities</h3>
-          {activity.map((item, idx) => (
-            <div key={`${item.message}-${idx}`} className="activity-item">
-              <span>{item.icon}</span>
-              <p>{item.message}</p>
-              <small>{item.time}</small>
-            </div>
-          ))}
-        </section>
+        </div>
       </div>
     </div>
   );

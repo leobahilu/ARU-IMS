@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // Create Super-Admin (no department needed)
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'superadmin@aru.test'],
             [
                 'first_name' => 'Super',
@@ -65,7 +65,7 @@ class DatabaseSeeder extends Seeder
         // Create users for each department to demonstrate Super-Admin capabilities
         $departments->each(function ($department) use ($company) {
             // Department Coordinator
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => "coordinator_{$department->code}@aru.test"],
                 [
                     'first_name' => ucfirst(strtolower($department->code)),
@@ -79,7 +79,7 @@ class DatabaseSeeder extends Seeder
 
             // Students in each department
             for ($i = 1; $i <= 3; $i++) {
-                User::firstOrCreate(
+                User::updateOrCreate(
                     ['email' => "student_{$i}_{$department->code}@aru.test"],
                     [
                         'first_name' => "Student{$i}",
@@ -93,7 +93,7 @@ class DatabaseSeeder extends Seeder
             }
 
             // Examiner in each department
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => "examiner_{$department->code}@aru.test"],
                 [
                     'first_name' => 'Examiner',
@@ -106,7 +106,7 @@ class DatabaseSeeder extends Seeder
             );
 
             // Advisor in each department
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => "advisor_{$department->code}@aru.test"],
                 [
                     'first_name' => 'Advisor',
@@ -147,7 +147,7 @@ class DatabaseSeeder extends Seeder
         // Company users
         $companyIndex = 1;
         Company::all()->each(function ($company) use (&$companyIndex) {
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => "company_{$companyIndex}@aru.test"],
                 [
                     'first_name' => 'Company',

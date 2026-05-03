@@ -24,6 +24,8 @@ class User extends Authenticatable implements JWTSubject
         'company_id',
         'student_id',
         'employee_id',
+        'advisor_id',
+        'examiner_id',
         'role',
         'is_active',
         'profile_data',
@@ -143,5 +145,25 @@ class User extends Authenticatable implements JWTSubject
     public function isAdvisor()
     {
         return $this->role === 'advisor';
+    }
+
+    public function advisor()
+    {
+        return $this->belongsTo(User::class, 'advisor_id');
+    }
+
+    public function examiner()
+    {
+        return $this->belongsTo(User::class, 'examiner_id');
+    }
+
+    public function assignedStudentsAsAdvisor()
+    {
+        return $this->hasMany(User::class, 'advisor_id');
+    }
+
+    public function assignedStudentsAsExaminer()
+    {
+        return $this->hasMany(User::class, 'examiner_id');
     }
 }

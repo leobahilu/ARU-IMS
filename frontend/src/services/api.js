@@ -97,6 +97,25 @@ export const superAdminAPI = {
   registerCompany: (data) => api.post('/admin/register/company', data),
   registerExaminer: (data) => api.post('/admin/register/examiner', data),
   registerAdvisor: (data) => api.post('/admin/register/advisor', data),
+
+  getApprovalsSummary: () => api.get('/admin/approvals/summary'),
+  getPartnerRequests: (params) => api.get('/admin/partner-requests', { params }),
+  getPartnerRequest: (id) => api.get(`/admin/partner-requests/${id}`),
+  approvePartnerRequest: (id, data) => api.post(`/admin/partner-requests/${id}/approve`, data),
+  rejectPartnerRequest: (id, data) => api.post(`/admin/partner-requests/${id}/reject`, data),
+
+  getColleges: () => api.get('/admin/colleges'),
+  getDepartmentsByCollege: (collegeId) => api.get('/admin/departments/by-college', { params: { college_id: collegeId } }),
+  getUnassignedStudents: (params) => api.get('/admin/students/unassigned', { params }),
+  getAvailableExaminers: (departmentId) => api.get('/admin/examiners/available', { params: { department_id: departmentId } }),
+  getAvailableAdvisors: (departmentId) => api.get('/admin/advisors/available', { params: { department_id: departmentId } }),
+  assignExaminer: (payload) => api.post('/admin/assign/examiner', payload),
+  assignAdvisor: (payload) => api.post('/admin/assign/advisor', payload),
+  assignBoth: (payload) => api.post('/admin/assign/both', payload),
+};
+
+export const publicAPI = {
+  submitPartnerRequest: (data) => axios.post(`${API_BASE_URL}/public/partner-requests`, data),
 };
 
 export default api;

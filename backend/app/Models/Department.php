@@ -12,7 +12,13 @@ class Department extends Model
     protected $fillable = [
         'name',
         'code',
+        'college_id',
     ];
+
+    public function college()
+    {
+        return $this->belongsTo(College::class);
+    }
 
     public function users()
     {

@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Inertia\Inertia;
 
 class InternshipController extends Controller
 {
@@ -29,10 +30,12 @@ class InternshipController extends Controller
 
     public function index(Request $request)
     {
-        $this->authorize('internships.viewAny');
+        $user = auth()->user();
+        if (!$user->isSuperAdmin()) {
+            $this->authorize('internships.viewAny');
+        }
 
         $query = Internship::with(['company', 'coordinator', 'routingDepartment', 'routingDepartments', 'reviewer']);
-        $user = auth()->user();
 
         // Company can only view its own internships.
         if ($user && $user->isCompany()) {
@@ -65,7 +68,11 @@ class InternshipController extends Controller
 
         $internships = $query->paginate(10);
 
-        return response()->json($internships);
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json($internships);
+        }
+
+        return Inertia::render('Internships/Index', ['internships' => $internships]);
     }
 
     public function publicIndex(Request $request)
@@ -85,7 +92,7 @@ class InternshipController extends Controller
 
         $internships = $query->paginate(12);
 
-        return response()->json($internships);
+        return Inertia::render('Public/Internships', ['internships' => $internships]);
     }
 
     public function store(Request $request)
@@ -138,17 +145,16 @@ class InternshipController extends Controller
         $internship = Internship::create($payload);
         $this->syncRoutingDepartments($internship, $routingDepartments);
 
-        return response()->json([
-            'message' => 'Internship created successfully',
-            'internship' => $internship->load(['company', 'coordinator', 'routingDepartments']),
-        ], 201);
+        return redirect()->back()->with('success', 'Internship created successfully');
     }
 
     public function approvalQueue(Request $request)
     {
-        $this->authorize('internships.approvePost');
-
         $user = $request->user();
+        if (!$user->isSuperAdmin()) {
+            $this->authorize('internships.approvePost');
+        }
+
         $query = Internship::with(['company', 'routingDepartment', 'routingDepartments', 'reviewer'])
             ->whereIn('submission_status', [
                 Internship::SUBMISSION_STATUS_PENDING,
@@ -162,7 +168,13 @@ class InternshipController extends Controller
             });
         }
 
-        return response()->json($query->latest('submission_date')->paginate(15));
+        $internships = $query->latest('submission_date')->paginate(15);
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json($internships);
+        }
+
+        return Inertia::render('Internships/ApprovalQueue', ['internships' => $internships]);
     }
 
     public function reviewSubmission(Request $request, $id)
@@ -175,13 +187,13 @@ class InternshipController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return back()->withErrors($validator);
         }
 
         $internship = Internship::findOrFail($id);
         $user = $request->user();
         if (!$this->canUserReviewInternship($user, $internship)) {
-            return response()->json(['error' => 'Forbidden'], 403);
+            return back()->withErrors(['error' => 'Forbidden']);
         }
 
         $action = $request->input('action');
@@ -204,10 +216,7 @@ class InternshipController extends Controller
         $internship->save();
         $this->notifyCompanyReviewOutcome($internship, $action, (string) $request->input('review_notes', ''));
 
-        return response()->json([
-            'message' => 'Program review submitted successfully',
-            'internship' => $internship->load(['company', 'routingDepartment', 'routingDepartments', 'reviewer']),
-        ]);
+        return redirect()->back()->with('success', 'Program review submitted successfully');
     }
 
     public function show($id)
@@ -215,7 +224,7 @@ class InternshipController extends Controller
         $internship = Internship::with(['company', 'coordinator', 'routingDepartment', 'routingDepartments', 'applications.student'])
             ->findOrFail($id);
 
-        return response()->json($internship);
+        return Inertia::render('Internships/Show', ['internship' => $internship]);
     }
 
     public function update(Request $request, $id)
@@ -252,7 +261,7 @@ class InternshipController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return back()->withErrors($validator);
         }
 
         $payload = $request->all();
@@ -275,10 +284,7 @@ class InternshipController extends Controller
 
         $internship->update($payload);
 
-        return response()->json([
-            'message' => 'Internship updated successfully',
-            'internship' => $internship->load(['company', 'coordinator']),
-        ]);
+        return redirect()->back()->with('success', 'Internship updated successfully');
     }
 
     private function resolveRoutingDepartments(?string $programField)
@@ -400,7 +406,7 @@ class InternshipController extends Controller
 
         $internship->delete();
 
-        return response()->json(['message' => 'Internship deleted successfully']);
+        return redirect()->back()->with('success', 'Internship deleted successfully');
     }
 
     public function apply(Request $request, $id)
@@ -411,7 +417,7 @@ class InternshipController extends Controller
         $student = auth()->user();
 
         if (!$internship->isAvailable()) {
-            return response()->json(['error' => 'Internship is not available for application'], 422);
+            return back()->withErrors(['internship' => 'Internship is not available for application']);
         }
 
         $existingApplication = Application::where('student_id', $student->id)
@@ -419,7 +425,7 @@ class InternshipController extends Controller
             ->first();
 
         if ($existingApplication) {
-            return response()->json(['error' => 'You have already applied for this internship'], 422);
+            return back()->withErrors(['internship' => 'You have already applied for this internship']);
         }
 
         $validator = Validator::make($request->all(), [
@@ -428,7 +434,7 @@ class InternshipController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return back()->withErrors($validator);
         }
 
         $application = Application::create([
@@ -441,9 +447,6 @@ class InternshipController extends Controller
 
         $internship->incrementApplicants();
 
-        return response()->json([
-            'message' => 'Application submitted successfully',
-            'application' => $application->load(['student', 'internship']),
-        ], 201);
+        return redirect()->back()->with('success', 'Application submitted successfully');
     }
 }
